@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { tasks, categories, userSettings, InsertTask, InsertCategory, InsertUserSettings } from "../drizzle/schema";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -89,4 +90,92 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Task Management Queries
+export async function getUserTasks(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks).where(eq(tasks.userId, userId));
+}
+
+export async function createTask(data: InsertTask) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(tasks).values(data);
+  return result;
+}
+
+export async function updateTask(taskId: number, data: Partial<InsertTask>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(tasks).set(data).where(eq(tasks.id, taskId));
+}
+
+export async function deleteTask(taskId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(tasks).where(eq(tasks.id, taskId));
+}
+
+export async function getTaskById(taskId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+// Category Management Queries
+export async function getUserCategories(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(categories).where(eq(categories.userId, userId));
+}
+
+export async function createCategory(data: InsertCategory) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.insert(categories).values(data);
+}
+
+export async function updateCategory(categoryId: number, data: Partial<InsertCategory>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(categories).set(data).where(eq(categories.id, categoryId));
+}
+
+export async function deleteCategory(categoryId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(categories).where(eq(categories.id, categoryId));
+}
+
+// User Settings Queries
+export async function getUserSettings(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function upsertUserSettings(userId: number, data: Partial<InsertUserSettings>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getUserSettings(userId);
+  if (existing) {
+    return db.update(userSettings).set(data).where(eq(userSettings.userId, userId));
+  } else {
+    return db.insert(userSettings).values({ userId, ...data });
+  }
+}
+
+// Task Statistics
+export async function getTaskStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { total: 0, completed: 0, completionRate: 0 };
+  
+  const userTasks = await getUserTasks(userId);
+  const total = userTasks.length;
+  const completed = userTasks.filter(t => t.completed === 1).length;
+  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+  
+  return { total, completed, completionRate };
+}
